@@ -1,0 +1,289 @@
+#include "Map.h"
+
+void Map::align() {
+	for (size_t i = 0; i < tiles.size(); i++) {
+		for (size_t j = 0; j < tiles.at(i)->size(); i++) {
+			float posX = tileSize * j + offset.x;
+			float posY = tileSize * i + offset.x;
+			tiles.at(i)->at(j)->sprite.setSize({ (float)tileSize, (float)tileSize });
+			tiles.at(i)->at(j)->sprite.setPosition({ posX,posY });
+		}
+	}
+}
+
+void Map::generateGrid()
+{
+	grid.clear();
+
+	//Horizontal lines
+	for (auto i = 0; i <= dimensions.y; i++) {
+		sf::Vector2<float> posA = { offset.x - (tileSize / 2), i * tileSize + offset.y - (tileSize / 2)};
+		sf::Vector2<float> posB = { dimensions.x * tileSize + offset.x - (tileSize / 2), i * tileSize + offset.y - (tileSize / 2) };
+		grid.push_back({ posA, gridColor,{0,0} });
+		grid.push_back({ posB, gridColor, {0,0} });
+	}
+
+	//Vertical lines
+	for (auto i = 0; i <= dimensions.x; i++) {
+		sf::Vector2<float> posA = { i * tileSize + offset.x - (tileSize/2), offset.y - (tileSize / 2)};
+		sf::Vector2<float> posB = { i * tileSize + offset.x - (tileSize / 2), dimensions.y * tileSize + offset.y - (tileSize/2)};
+		grid.push_back({ posA, gridColor,{0,0} });
+		grid.push_back({ posB, gridColor, {0,0} });
+	}
+}
+
+Map::Map(TextureRegistry* textureRegistry, sf::View* view)
+{
+	texReg = textureRegistry;
+	this->view = view;
+}
+
+Map::~Map()
+{
+	for (unsigned int i = 0; i < dimensions.y; i++) {
+		for (unsigned int j = 0; j < dimensions.x; j++) {
+			delete tiles.at(i)->at(j);
+		}
+
+		delete tiles.at(i);
+	}
+
+	tiles.clear();
+}
+
+void Map::addSpotter(sf::Vector2<unsigned int> pos, int range)
+{
+	Spotter s;
+	s.pos = pos;
+	s.range = range;
+	spotters.push_back(s);
+}
+
+std::vector<sf::Vector2<float>> Map::pathfind(sf::Vector2<int> origin, sf::Vector2<int> target)
+{
+	std::vector<sf::Vector2<float>> path = {};
+	if (origin == target) {
+		return path;
+	}
+
+	
+
+	//Check constraints
+	if (origin.x < 0 || origin.x >= (int)dimensions.x || origin.y < 0 || origin.y >= (int)dimensions.y) {
+		return path;
+	}
+
+	if (target.x < 0 || target.x >= (int)dimensions.x || target.y < 0 || target.y >= (int)dimensions.y) {
+		return path;
+	}
+
+	//Check if origin or target is impassable
+	if (!tiles.at(origin.y)->at(origin.x)->isPassable || !tiles.at(target.y)->at(target.x)->isPassable) {
+		return path;
+	}
+
+
+	//Do A*
+	std::vector<std::vector<bool>> passableMap;
+	for (unsigned int i = 0; i < dimensions.y; i++) {
+		passableMap.push_back(std::vector<bool>());
+		for (unsigned int j = 0; j < dimensions.x; j++) {
+			bool isPassable = tiles.at(i)->at(j)->isPassable && (tiles.at(i)->at(j)->shipID < 0);
+			passableMap.at(i).push_back(isPassable);
+		}
+	}
+
+	std::vector<std::pair<int, int>> pathIndicies = utl::aStar({origin.x, origin.y}, {target.x, target.y}, passableMap);
+
+	for(size_t i = 0; i < pathIndicies.size(); i++) {
+		int x = pathIndicies.at(i).first * tileSize;
+		int y = pathIndicies.at(i).second * tileSize;
+		path.push_back({(float)x,(float)y});
+	}
+	
+	
+	return path;
+}
+
+void Map::setOffset(sf::Vector2<float> newOffset) {
+	sf::Vector2<float> diff = newOffset - offset;
+	offset = newOffset;
+	this->align();
+	for (auto v : grid) {
+		v.position.x += diff.x;
+		v.position.y += diff.y;
+	}
+}
+
+sf::Vector2<int> Map::tileAtPos(sf::Vector2<float> pos)
+{
+	//Account for centered origin
+	pos.x += (float)tileSize / 2.f;
+	pos.y += (float)tileSize / 2.f;
+
+	//Get index
+	sf::Vector2<int> idx = { (int)std::floor(pos.x / tileSize),(int)std::floor(pos.y / tileSize) };
+
+	//Should flip this so it fails early and checks less conditions on avg
+	if (idx.x >= 0 && idx.y >= 0 && idx.x < (int)dimensions.x && idx.y < (int)dimensions.y ) {
+		return idx;
+	}
+
+	return { -1,-1 };
+}
+
+sf::Vector2<float> Map::getSize()
+{
+	return {(float)dimensions.x * (float)tileSize, (float)dimensions.y * (float)tileSize};
+}
+
+int Map::loadFromFile(std::string filename)
+{
+	std::cout << "Loading map: " << filename << std::endl;
+
+	std::ifstream inFile;
+	inFile.open(filename);
+	if (!inFile.is_open()) {
+		std::cout << "Could not open map: " << filename << std::endl;
+		return -1;
+	}
+
+	//Read filetype
+	int fType;
+	inFile >> fType;
+	if (fType != 100) {
+		std::cout << "Could not load map: " << filename << ", incorrect type..." << std::endl;
+		return -1;
+	}
+
+	//Read texture info
+	std::string textureName; int textureSize = 16;
+	inFile >> textureName;
+	inFile >> textureSize;
+	inFile >> tileSize;
+
+	//Read dimensions
+	inFile >> dimensions.x >> dimensions.y;
+
+
+	//Read Tiles
+	Tile* t; int type; int pass; int spotted; float visible; int owner;
+
+	for (unsigned int i = 0; i < dimensions.y; i++) {
+		tiles.push_back(new std::vector<Tile*>());
+		for (unsigned  j = 0; j < dimensions.x; j++) {
+			t = new Tile();
+			char c;
+			inFile >> c;
+			inFile >> type >> pass >> spotted >> visible >> owner;
+			t->sprite.setTexture(texReg->lookup(textureName));
+			t->sprite.setFrameSize(32, 32);
+			t->sprite.setSize({(float)tileSize, (float)tileSize});
+			t->sprite.setPosition({(float)j * textureSize + offset.x, (float)i * textureSize + offset.y});
+			t->sprite.setOrigin({t->sprite.getLocalBounds().size.x / 2.f, t->sprite.getLocalBounds().size.y / 2.f});
+			t->type = type;
+			t->sprite.setFrame(type);
+			t->visibility = visible;
+			t->isPassable = pass;
+			t->isSpotted = spotted;
+			t->pos = {j,i};
+			tiles.at(i)->push_back(t);
+			inFile >> c;
+		}
+	}
+
+	//Close file
+	inFile.close();
+
+	this->generateGrid();
+
+	return 1;
+}
+
+sf::Vector2<float> Map::getOffset()
+{
+	return offset;
+}
+
+Tile* Map::tileAtIdx(size_t x, size_t y)
+{
+	if (x >= dimensions.x || y >= dimensions.y ) {
+		return nullptr;
+	}
+	return tiles.at(y)->at(x);
+}
+
+Tile* Map::tileAtIdx(std::pair<int, int> idx)
+{
+	if ((unsigned int)idx.first >= dimensions.x || (unsigned int)idx.second >= dimensions.y) {
+		return nullptr;
+	}
+
+	if (idx.second < 0 || idx.first < 0) {
+		return nullptr;
+
+	}
+	return tiles.at(idx.second)->at(idx.first);
+}
+
+void Map::clearShipPositions()
+{
+	for (auto i = 0; i < tiles.size(); i++) {
+		for (auto j = 0; j < tiles.at(i)->size(); j++) {
+			tiles.at(i)->at(j)->shipID = -1;
+		}
+	}
+}
+
+void Map::Poll(sf::RenderWindow& win, std::optional<sf::Event> event)
+{
+	for (unsigned int i = 0; i < dimensions.y; i++) {
+		for (unsigned int j = 0; j < dimensions.x; j++) {
+			tiles.at(i)->at(j)->Poll(win, event);
+		}
+	}
+}
+
+void Map::Update()
+{
+
+	for (auto s : spotters) {
+		if (s.hasChanged) {
+			//Calculate spotted tile list
+			s.getTiles();
+
+			for (auto t : s.tiles) {
+				if (t.x < dimensions.x && t.y < dimensions.y) {
+					tiles.at(t.y)->at(t.x)->isSpotted = true;
+				}
+			}
+
+			s.hasChanged = false;
+		}
+	}
+
+	//Update Tiles
+	for (unsigned int i = 0; i < dimensions.y; i++) {
+		for (unsigned int j = 0; j < dimensions.x; j++) {
+			tiles.at(i)->at(j)->update();
+		}
+	}
+}
+
+void Map::Draw(sf::RenderWindow& win)
+{
+	//Tiles
+	for (unsigned int i = 0; i < dimensions.y; i++) {
+		for (unsigned int j = 0; j < dimensions.x; j++) {
+			tiles.at(i)->at(j)->draw(win);
+		}
+	}
+
+	//Grid
+	if (drawGrid) {
+		for (auto i = 0; i < grid.size(); i+=2) {
+			sf::Vertex line[2] = { grid.at(i),grid.at(i+1) };
+			win.draw(line,2, sf::PrimitiveType::Lines);
+		}
+	}
+}
