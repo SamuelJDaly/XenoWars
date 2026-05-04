@@ -12,6 +12,7 @@
 #include "Map.h"
 #include "Ship.h"
 #include "SolarSystem.h"
+#include "AI.h"
 
 
 /*
@@ -88,6 +89,9 @@ private:
 	int tileSize = 32;
 	int turn = 0;
 
+	//AI
+	AI_Tactical* enemyAI;
+
 	//Camera
 	sf::View mapView;
 	sf::View guiView;
@@ -111,6 +115,7 @@ private:
 	sf::Sprite cursor = sf::Sprite(defaultTexture);
 	sf::Sprite targetCursor = sf::Sprite(defaultTexture);
 	int systemSel = -1;
+	sf::Vector2<int> cursorPos = { -1,-1 };
 
 
 	//Util
@@ -128,11 +133,13 @@ private:
 	void showGui_systemSel();
 	void showGui_SystemSel_Empty();
 	void showGui_SystemSel_Enemy();
+	void showGui_debugPanel();
 
 	void pollMove(Ship* ship, sf::Vector2<float> pos);
 	void pollAttack(Ship* attacker, Ship* defender, int range);
 
 	void spawnShip(int owner, Ship type, sf::Vector2<float> pos);
+	void updateShipPositions();
 
 public:
 	//Constructors and Destructors

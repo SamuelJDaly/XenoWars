@@ -226,11 +226,42 @@ Tile* Map::tileAtIdx(std::pair<int, int> idx)
 	return tiles.at(idx.second)->at(idx.first);
 }
 
+std::vector<sf::Vector2<int>> Map::tileIdxInRange(int range, sf::Vector2<int> og, bool includeOG)
+{
+	std::vector < sf::Vector2<int>> idxs;
+	int minX = og.x - range;
+	int maxX = og.x + range;
+	int minY = og.y - range;
+	int maxY = og.y + range;
+
+	//Clamp Range
+	if (minX < 0) { minX = 0; }
+	if (maxX >= dimensions.x) { maxX = dimensions.x - 1; }
+	if (minY < 0) { minY = 0; }
+	if (maxY >= dimensions.y) { maxY = dimensions.y - 1; }
+
+
+	//Calculate tiles
+	for (int i = minY; i <= maxY; i++) {
+		for (int j = minX; j <= maxX; j++) {
+			if (og.x == j && og.y == i) {
+				if (includeOG) { idxs.push_back({ j,i }); }
+			}
+			else if((int)std::floor(utl::dist((float)og.x, (float)og.y, (float)j, (float)i)) <= range) {
+				idxs.push_back({ j,i });
+			}
+		}
+	}
+
+	return idxs;
+}
+
 void Map::clearShipPositions()
 {
 	for (auto i = 0; i < tiles.size(); i++) {
 		for (auto j = 0; j < tiles.at(i)->size(); j++) {
 			tiles.at(i)->at(j)->shipID = -1;
+			tiles.at(i)->at(j)->ownerID = -1;
 		}
 	}
 }

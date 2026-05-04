@@ -41,37 +41,40 @@ void State_Game::initTest()
 	s->setOwner(0);
 	s->setTextureSize(64);
 	s->setTexture(texReg->lookup("ship_4"));
+	s->setAttackEffectTexture(texReg->lookup("beam"));
 	s->setName("NCS Hammer");
 	s->setLaborCost(2.f);
 	s->setHp(10);
 	s->addOffComp({0,true,5,0,1,0,3});
-	s->addDefComp({0,true, 3, 3, 1, 0});
+	s->addDefComp({0,true, 2, 1, 1, 0});
 	ships.push_back(s);
-	s->setMp(5);
+	s->setMp(50);
 
 	Ship* s2 = new Ship(1);
 	s2->setOwner(0);
 	s2->setTextureSize(64);
 	s2->setTexture(texReg->lookup("ship_5"));
+	s2->setAttackEffectTexture(texReg->lookup("beam"));
 	s2->setPosition({160,160});
 	s2->setName("NCS Anvil");
 	s2->setHp(10);
-	s2->addOffComp({ 0,true,5,0,1,0,1 });
-	s2->addDefComp({ 0,true, 3, 3, 1, 0 });
+	s2->addOffComp({ 0,true,4,0,1,0,1 });
+	s2->addDefComp({ 0,true, 3, 2, 1, 0 });
 	s2->setLaborCost(3.f);
-	s2->setMp(5);
+	s2->setMp(50);
 	ships.push_back(s2);
 
 	Ship* s3 = new Ship(2);
 	s3->setOwner(1);
 	s3->setTexture(texReg->lookup("ship_3"));
+	s3->setAttackEffectTexture(texReg->lookup("beam"));
 	s3->setPosition({ 320,320 });
-	s3->setName("Enemy Ship");
+	s3->setName("AI Ship");
 	s3->setLaborCost(3.f);
 	s3->addOffComp({ 0,true,5,0,1,0,3 });
 	s3->addDefComp({ 0,true, 3, 3, 1, 0 });
 	s3->setHp(10);
-	s3->setMp(5);
+	s3->setMp(2);
 	ships.push_back(s3);
 
 	//Set up Solar systems
@@ -109,6 +112,8 @@ void State_Game::initTest()
 	infCatalog.insert({0, basicFarm });
 	infCatalog.insert({ 1, advancedFarm });
 	infCatalog.insert({ 2, basicFactory });
+
+	enemyAI = new AI_Tactical(ships,map, 1);
 }
 
 void State_Game::initGui()
@@ -239,6 +244,7 @@ void State_Game::showGui_shipSel()
 	ImGui::Text("(%d, %d)", pos.x, pos.y);
 	ImGui::NewLine();
 	ImGui::Text("HP: %d", sel.getHpLeft());
+	ImGui::Text("Armor: %d | Shield: %d", sel.getArmor(), sel.getShield());
 	ImGui::Text("Movement Left: %d", sel.getMpLeft());
 	ImGui::End();
 }
@@ -419,6 +425,28 @@ void State_Game::showGui_SystemSel_Enemy()
 {
 }
 
+void State_Game::showGui_debugPanel()
+{
+	ImGuiWindowFlags windowFlags = 0;
+	windowFlags |= ImGuiWindowFlags_NoCollapse;
+	windowFlags |= ImGuiWindowFlags_NoTitleBar;
+	windowFlags |= ImGuiWindowFlags_NoResize;
+	windowFlags |= ImGuiWindowFlags_NoMove;
+
+	bool pOpen = false;
+
+	//ImGui::Text("Underlying float value: %f", drag_f);
+
+	int width = 150;
+	int height = 30;
+
+	ImGui::Begin("debug", &pOpen, windowFlags);
+	ImGui::SetWindowPos(ImVec2(0, windowHeight - height));
+	ImGui::SetWindowSize(ImVec2(width, height));
+	ImGui::Text("Mouse: (%d, %d)", cursorPos.x, cursorPos.y);
+	ImGui::End();
+}
+
 void State_Game::pollMove(Ship* ship, sf::Vector2<float> pos)
 {
 	sf::Vector2<int> t = map->tileAtPos(pos);
@@ -440,38 +468,20 @@ void State_Game::pollMove(Ship* ship, sf::Vector2<float> pos)
 
 void State_Game::pollAttack(Ship* attacker, Ship* defender, int range)
 {
-	//Damage = physDmg - armor + energyDmg - sheild | Temporary method, this does not make good use of seperate dmg types
-	int physDmg = attacker->getPhysDmg(range) - defender->getArmor();
-	int energyDmg = attacker->getEnergyDmg(range) - defender->getShield();
-
-	if (physDmg < 0) { physDmg = 0; }
-	if (energyDmg < 0) { energyDmg = 0; }
-
-	int damage = physDmg + energyDmg;
-
-	if (damage < 0) {
-		damage = 0;
-	}
-
-	Spritesheet effect;
-
-	Animation anm = {0,0,0,3,false,false,-1,2};
+	//Face each other
 	attacker->facePoint(defender->getPosition());
 	defender->facePoint(attacker->getPosition());
-	float rad = attacker->getRotation().asRadians() + utl::degToRad(90.f);
-	sf::Vector2<float> pos = { attacker->getPosition().x - ((float)(tileSize/2.f) * std::cosf(rad)) , attacker->getPosition().y - ((float)(tileSize/2.f) * std::sinf(rad))};
 
-	effect.setTexture(texReg->lookup("beam"));
-	effect.setFrameSize(32,32);
-	effect.setAnimation(anm);
-	effect.setOrigin({ effect.getLocalBounds().size.x / 2.f, effect.getLocalBounds().size.y / 2.f });
-	effect.setPosition(pos);
-	effect.setRotation(attacker->getRotation());
-	effects.push_back(effect);
+	//Play Animations
+	attacker->doAttackAnimation();
+	if (!defender->getDead()) {
+		defender->doDamageAnimation();
+	}
+
+	//Do Damage
+	defender->takeDmg(attacker->getEffectiveDamage(*defender, range));
 
 	
-
-	defender->takeDmg(damage);
 }
 
 void State_Game::spawnShip(int owner, Ship type, sf::Vector2<float> pos)
@@ -480,6 +490,22 @@ void State_Game::spawnShip(int owner, Ship type, sf::Vector2<float> pos)
 	s->setOwner(owner);
 	s->setPosition(pos);
 	ships.push_back(s);
+}
+
+void State_Game::updateShipPositions()
+{
+	if (!map) {
+		std::cout << "Cannot update ship positions, map not initialized!" << std::endl;
+		return;
+	}
+
+	map->clearShipPositions();
+
+	for (auto s : ships) {
+		sf::Vector2<int> pos = map->tileAtPos(s->getPosition());
+		map->tileAtIdx({ pos.x, pos.y })->shipID = s->getID();
+		map->tileAtIdx({ pos.x, pos.y })->ownerID = s->getOwner();
+	}
 }
 
 State_Game::State_Game(TextureRegistry* textureRegistry, sf::RenderWindow* window)
@@ -569,6 +595,10 @@ void State_Game::endTurn()
 			}
 		}
 	}
+
+	enemyAI->getActions();
+	enemyAI->scoreActions();
+	enemyAI->executeTurn();
 	
 
 	turn++;
@@ -597,6 +627,7 @@ void State_Game::update(float dt)
 		ImGui::ShowDemoWindow();
 	}
 	showGui_TopBar();
+	showGui_debugPanel();
 
 	if (shipSel >= 0) {
 		systemSel = -1;
@@ -622,12 +653,9 @@ void State_Game::update(float dt)
 		}
 	}
 
-	map->clearShipPositions(); //May be better to move this logic to not fire every frame
-
-
 	for (auto it = ships.begin(); it != ships.end(); /* NOTHING */)
 	{
-
+		
 		if (!(*it)->isAnimated() && (*it)->getDead()) {
 			//Adjust ship selection
 			if (shipSel >= 0 && std::distance(it,ships.begin() + shipSel) >= 0) {
@@ -642,17 +670,15 @@ void State_Game::update(float dt)
 
 			delete (*it);
 			it = ships.erase(it);
-			std::cout << "Ship sel: " << shipSel << std::endl;
-			std::cout << "Ships Size: " << ships.size() << std::endl;
 		}else {
 			(*it)->Update(dt);
-			sf::Vector2<int> pos = map->tileAtPos((*it)->getPosition());
-			map->tileAtIdx({ pos.x, pos.y })->shipID = (*it)->getID();
-			
 			++it;
 		}
 	}
 
+	this->updateShipPositions();
+
+	//POTENTIAL ISSUE: maybe dont delete from a list you are looping through without updating the iteration logic... ;(
 	for(auto i = 0; i < effects.size(); i++) {
 		effects.at(i).update(dt);
 		if (!effects.at(i).getAnimated()) {
@@ -754,6 +780,13 @@ void State_Game::poll(sf::RenderWindow& win, std::optional<sf::Event> event)
 	//## Mouse Move
 	if (const auto* mouseMoved = event->getIf<sf::Event::MouseMoved>()) {
 		sf::Vector2<int> mousePos = sf::Mouse::getPosition(win);
+		win.setView(mapView);
+		sf::Vector2<float> mapViewMousePos = win.mapPixelToCoords(mousePos);
+
+		//Game map coords
+		cursorPos = map->tileAtPos(mapViewMousePos);
+
+		//Panning
 		if (isMousePan) {
 			float panSpeedMult = 1.2;
 			panDelta = {panStart.x - (float)mousePos.x, panStart.y - (float)mousePos.y};

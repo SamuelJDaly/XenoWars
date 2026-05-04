@@ -134,6 +134,8 @@ public:
 	Tile* tileAtIdx(size_t x, size_t y);
 	Tile* tileAtIdx(std::pair<int,int> idx);
 
+	std::vector<sf::Vector2<int>> tileIdxInRange(int range, sf::Vector2<int> og, bool includeOG = false);
+
 	void clearShipPositions();
 
 	void Poll(sf::RenderWindow &win, std::optional<sf::Event> event);

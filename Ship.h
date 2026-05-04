@@ -45,14 +45,17 @@ private:
 	int maintCost = 0;
 	int ap = 1; //action pts
 	int maxRange = 1;
+	int sensorRange = 2;
 
 	std::string name = "Unnamed";
 
 	Spritesheet sprite;
 	sf::Texture* texture = nullptr;
+	sf::Texture* attackEffectTexture = nullptr;
 	unsigned int textureSize = 32;
 	sf::Vector2<float> size = {32,32};
 	bool isDead = false;
+	std::vector<Spritesheet> effects;
 
 	//Movement
 	int mp = 1; //Move pts
@@ -97,6 +100,7 @@ public:
 
 	//Graphics
 	void setTexture(sf::Texture* newTexture);
+	inline void setAttackEffectTexture(sf::Texture* newTexture) { attackEffectTexture = newTexture; }
 	void draw(sf::RenderWindow& win);
 	inline void setAnimation(Animation anm) { sprite.setAnimation(anm); }
 	void setTextureSize(unsigned int newTextureSize);
@@ -123,7 +127,7 @@ public:
 	inline int getOwner() { return ownerID; };
 
 	//Stats
-	void takeDmg(int amt);//For now this is just passed raw hull dmg and the calculation is done externally
+	void takeDmg(int amt); //Raw Hull Damage
 	int getPhysDmgRng();
 	int getEnergyDmgRng();
 	int getPhysDmg(int range);
@@ -132,6 +136,7 @@ public:
 	inline int getArmor() { return armor; };
 	void processTurn(); //pretty much just refresh move points
 	void setHp(int newHp);
+	inline int getBaseHp() { return hp; }
 	int getHpLeft();
 	void setMp(int newMp);
 	int getMpLeft();
@@ -140,6 +145,13 @@ public:
 	inline int getAp() { return ap; };
 	inline int getMaxRange() { return maxRange; }
 	inline bool isAnimated() { return sprite.getAnimated(); }
+	inline void setSensorRange(int newSensorRange) { sensorRange = newSensorRange; }
+	inline int getSensorRange() { return sensorRange; }
+	int getEffectiveDamage(const Ship& target, int range);
+	
+	void doAttackAnimation();
+	void doDamageAnimation();
+	void doDeathAnimation();
 
 	inline void setLaborCost(float cost) { laborCost = cost; };
 	inline void setCreditCost(float cost) { creditCost = cost; };

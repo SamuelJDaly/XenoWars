@@ -6,8 +6,14 @@
 
 void Ship::die()
 {
+	//You only die once
+	if (isDead) {
+		return;
+	}
+
 	//Play animations etc...
 	isDead = true;
+	//St end curr fps
 	Animation deathAnim = {0,8,0,15};
 	sprite.setAnimation(deathAnim);
 }
@@ -64,6 +70,19 @@ void Ship::Update(float dt)
 		}
 	}
 
+	for (auto it = effects.begin(); it != effects.end();)
+	{
+		if (!(*it).getAnimated()) {
+			//If no longer animated (ie done) then delete it
+			it = effects.erase(it);
+		}
+		else {
+			//Update effect
+			(*it).update(dt);
+			++it;
+		}
+	}
+
 	sprite.update(dt);
 }
 
@@ -112,6 +131,10 @@ void Ship::draw(sf::RenderWindow& win) {
 		win.draw(end);
 	}
 
+	//Draw Effects
+	for (auto e : effects) {
+		e.draw(win);
+	}
 	
 
 	//Draw Ship
@@ -197,29 +220,17 @@ void Ship::takeDmg(int amt)
 {
 	hpLeft -= amt;
 
-	Animation anm = {9,12,9,9};
-	sprite.setAnimation(anm);
-
 	if (hpLeft <= 0) {
 		this->die();
 	}
 }
 
-int Ship::getPhysDmgRng()
-{
-	return physicalDmg_rng;
-}
-
-int Ship::getEnergyDmgRng()
-{
-	return energyDmg_rng;
-}
 
 int Ship::getPhysDmg(int range)
 {
 	int dmg = 0;
 
-	for (auto c : components_off) {
+	for (auto &c : components_off) {
 		if (c.range >= range) {
 			dmg += c.physicalDmg;
 		}
@@ -233,7 +244,7 @@ int Ship::getEnergyDmg(int range)
 {
 	int dmg = 0;
 
-	for (auto c : components_off) {
+	for (auto &c : components_off) {
 		if (c.range >= range) {
 			dmg += c.energyDmg;
 		}
@@ -279,6 +290,45 @@ void Ship::kill()
 bool Ship::getDead()
 {
 	return isDead;
+}
+
+int Ship::getEffectiveDamage(const Ship& target, int range)
+{
+	int dmg = 0;
+
+	//Placeholder calculation until a more interesting method is found
+	dmg = std::max(0, (this->getPhysDmg(range) - target.armor)) + std::max(0, (this->getEnergyDmg(range) - target.shield));
+
+	return std::max(0,dmg);
+}
+
+void Ship::doAttackAnimation()
+{
+	Spritesheet effect;
+
+	Animation anm = { 0,0,0,3,false,false,-1,2 };
+	float rad = this->getRotation().asRadians() + utl::degToRad(90.f);
+	sf::Vector2<float> pos = { this->getPosition().x - ((float)(size.x / 2.f) * std::cosf(rad)) , this->getPosition().y - ((float)(size.x / 2.f) * std::sinf(rad)) };
+
+	effect.setTexture(attackEffectTexture);
+	effect.setFrameSize(32, 32);
+	effect.setAnimation(anm);
+	effect.setOrigin({ effect.getLocalBounds().size.x / 2.f, effect.getLocalBounds().size.y / 2.f });
+	effect.setPosition(pos);
+	effect.setRotation(this->getRotation());
+	effects.push_back(effect);
+}
+
+void Ship::doDamageAnimation()
+{
+	Animation anm = { 9,12,9,9 };
+	sprite.setAnimation(anm);
+}
+
+void Ship::doDeathAnimation()
+{
+	Animation deathAnim = { 0,8,0,15 };
+	sprite.setAnimation(deathAnim);
 }
 
 int Ship::addOffComp(Cmp_Offensive component)
