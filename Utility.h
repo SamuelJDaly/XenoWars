@@ -3,12 +3,13 @@
 #include <vector>
 #include <queue>
 #include <sstream>
+#include <random>
 
 /*
 PROJECT: XenoWars
 AUTHOR(S): Sam Daly
 CREATED: 13 APR 2026
-UPDATED: 15 APR 2026
+UPDATED: 4 MAY 2026
 DESCRIPTION:
 	This file contains utility functions that see use across a number of
 	files and systems.
@@ -32,6 +33,10 @@ namespace utl {
 	//2D Distance
 	inline float dist(float x1, float y1, float x2, float y2) {
 		return std::sqrtf(std::powf(x2-x1,2) + std::powf(y2-y1, 2));
+	}
+
+	inline float gridDist(int x1, int y1, int x2, int y2) {
+		return std::sqrtf(std::pow(x2 - x1, 2) + std::pow(y2 - y1, 2));
 	}
 
 	//Float comparison
@@ -72,6 +77,16 @@ namespace utl {
 		return true;
 	}
 
+	//Random range
+	inline int randRange(int min, int max) {
+		//Rand is externally seeded
+		int r = 0;
+
+		int range = max - min + 1;
+		r = rand() % range + min;
+
+		return r;
+	}
 
 	//############# A STAR PATHFINDING
 

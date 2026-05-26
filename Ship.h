@@ -28,6 +28,13 @@ struct Cmp_Defensive {
 //Engine, hull, and reactor components? Could be fun...
 
 
+struct Persona {
+	//Contains certain AI weights
+	float baseAgression =  1.f;
+	float agression = 1.f;
+	float rangedPref = 1.f;
+};
+
 class Ship
 {
 private:
@@ -38,14 +45,14 @@ private:
 	int hpLeft = 1;
 	int armor = 0;
 	int shield = 0;
-	int physicalDmg_cq = 0; //Close quarters
-	int energyDmg_cq = 0;
-	int physicalDmg_rng = 0; //Ranged
-	int energyDmg_rng = 0;
+	int maxEnergyDmg = 0;
+	int maxPhysDmg = 0;
+	int maxDmg = 0;
 	int maintCost = 0;
 	int ap = 1; //action pts
 	int maxRange = 1;
 	int sensorRange = 2;
+	bool isColonyShip = false;
 
 	std::string name = "Unnamed";
 
@@ -56,6 +63,8 @@ private:
 	sf::Vector2<float> size = {32,32};
 	bool isDead = false;
 	std::vector<Spritesheet> effects;
+
+	Persona personality;
 
 	//Movement
 	int mp = 1; //Move pts
@@ -82,7 +91,7 @@ private:
 
 
 	//## Util
-	void die();
+	void die(bool doAnim = true);
 
 public:
 	//Constructor and Destructor
@@ -140,7 +149,7 @@ public:
 	int getHpLeft();
 	void setMp(int newMp);
 	int getMpLeft();
-	void kill();
+	void kill(bool doAnim = true);
 	bool getDead();
 	inline int getAp() { return ap; };
 	inline int getMaxRange() { return maxRange; }
@@ -148,7 +157,13 @@ public:
 	inline void setSensorRange(int newSensorRange) { sensorRange = newSensorRange; }
 	inline int getSensorRange() { return sensorRange; }
 	int getEffectiveDamage(const Ship& target, int range);
+	inline void setPersona(Persona newPersona) { personality = newPersona; }
+	inline Persona* getPersona() { return &personality; }
+	inline void setIsColonyShip(bool state) { isColonyShip = state; }
+	inline bool getIsColonyShip() { return isColonyShip; }
 	
+	float getStr();
+
 	void doAttackAnimation();
 	void doDamageAnimation();
 	void doDeathAnimation();

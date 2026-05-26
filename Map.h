@@ -19,6 +19,7 @@ struct Tile {
 	float visibility = 0.f;
 	int ownerID = -1;
 	int shipID = -1; //ID of the ship there
+	int systemID = -1; //ID of the system there
 	bool fow = true;
 	bool isHighlight = false;
 
@@ -108,6 +109,7 @@ private:
 	bool drawGrid = true;
 	sf::Color gridColor = sf::Color::Green;
 	std::vector<sf::Vertex> grid;
+	sf::Texture* fogTexture;
 
 	//Util
 	void align();
@@ -124,9 +126,11 @@ public:
 
 	std::vector<sf::Vector2<float>> pathfind(sf::Vector2<int> origin, sf::Vector2<int> target);
 	void setOffset(sf::Vector2<float> newOffset);
-	sf::Vector2<int> tileAtPos(sf::Vector2<float> pos);
+	sf::Vector2<int> posToTileIdx(sf::Vector2<float> pos);
+	sf::Vector2<float> tileIdxToPos(sf::Vector2<int> idx);
 
 	sf::Vector2<float> getSize();
+	inline int getTileSize() { return tileSize; };
 
 	int loadFromFile(std::string filename);
 	sf::Vector2<float> getOffset();
@@ -134,6 +138,10 @@ public:
 	Tile* tileAtIdx(size_t x, size_t y);
 	Tile* tileAtIdx(std::pair<int,int> idx);
 
+	//float mnhtnDist(sf::Vector2<int> a, sf::Vector2<int> b);
+	int mnhtnDist(sf::Vector2<float> a, sf::Vector2<float> b);
+	
+	
 	std::vector<sf::Vector2<int>> tileIdxInRange(int range, sf::Vector2<int> og, bool includeOG = false);
 
 	void clearShipPositions();
@@ -141,5 +149,6 @@ public:
 	void Poll(sf::RenderWindow &win, std::optional<sf::Event> event);
 	void Update();
 	void Draw(sf::RenderWindow &win);
+	void DrawFow(sf::RenderWindow &win);
 };
 

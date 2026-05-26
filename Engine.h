@@ -1,5 +1,7 @@
 #pragma once
 #include <iostream>
+#include <random>
+#include <time.h>
 #include <SFML/Graphics.hpp>
 
 #include "TextureRegistry.h"

@@ -2,17 +2,17 @@
 
 void SolarSystem::updateStats()
 {
+	//Return to base stats
 	rp = 0.f; //research pts
-	income = 0.f;
+	income = population * popWealth * taxRate;
 	maint = 0.f;
 	popCapacity = 3.f; //How much pop can be supported
-	//population = 0.f;
-	popGrowth = 0.f;
+	popGrowth = 0.05f;
 	laborPool = population;
 	laborUsed = 0.f;
+	
 
-
-	//Raw
+	//Calculate stats with improvements
 	for (auto i : improvements) {
 		rp += i.rp;
 		income += i.income;
@@ -23,7 +23,14 @@ void SolarSystem::updateStats()
 		laborUsed += i.laborMaint;
 	}
 
-	//Modifiers
+	//Apply Modifiers
+	rp *= rpMod;
+	income *= incomeMod;
+	maint *= maintMod;
+	popCapacity *= popCapMod;
+	popGrowth *= popGrowthMod;
+	laborPool *= laborPoolMod;
+	laborUsed *= laberUseMod;
 }
 
 SolarSystem::SolarSystem(int id) {
@@ -35,7 +42,17 @@ SolarSystem::~SolarSystem() {
 }
 
 void SolarSystem::update(float dt) {
-
+	//Remove cancelled projects and refund credits
+	for (auto it = buildQueue.begin(); it != buildQueue.end();) {
+		if ((*it).isCancelled) {
+			refund += (*it).creditCost;
+			std::cout << "Refund Added: " << refund << std::endl;
+			it = buildQueue.erase(it);
+		}
+		else {
+			++it;
+		}
+	}
 }
 
 void SolarSystem::onTurnBegin() {

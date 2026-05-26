@@ -4,7 +4,7 @@
 
 
 
-void Ship::die()
+void Ship::die(bool doAnim)
 {
 	//You only die once
 	if (isDead) {
@@ -14,8 +14,10 @@ void Ship::die()
 	//Play animations etc...
 	isDead = true;
 	//St end curr fps
-	Animation deathAnim = {0,8,0,15};
-	sprite.setAnimation(deathAnim);
+	if (doAnim) {
+		Animation deathAnim = { 0,8,0,15 };
+		sprite.setAnimation(deathAnim);
+	}
 }
 
 Ship::Ship(int id)
@@ -281,10 +283,10 @@ int Ship::getMpLeft()
 	return mpLeft;
 }
 
-void Ship::kill()
+void Ship::kill(bool doAnim)
 {
 	this->hpLeft = 0;
-	this->die();
+	this->die(doAnim);
 }
 
 bool Ship::getDead()
@@ -300,6 +302,22 @@ int Ship::getEffectiveDamage(const Ship& target, int range)
 	dmg = std::max(0, (this->getPhysDmg(range) - target.armor)) + std::max(0, (this->getEnergyDmg(range) - target.shield));
 
 	return std::max(0,dmg);
+}
+
+float Ship::getStr()
+{
+	float str = 0;
+
+	//Health
+	str += hpLeft;
+
+	//Offense
+	str += maxDmg;
+
+	//Defense
+	str += armor + shield;
+
+	return str;
 }
 
 void Ship::doAttackAnimation()
@@ -341,22 +359,17 @@ int Ship::addOffComp(Cmp_Offensive component)
 	//#Add to comp list and update stats
 	//Check whether ranged or cq
 	components_off.push_back(component);
-	if (component.range > 1) {
-		physicalDmg_rng += component.physicalDmg;
-		energyDmg_rng += component.energyDmg;
-
-		//Update max range
-		if (component.range > maxRange) {
-			maxRange = component.range;
-		}
-	}
-	else {
-		physicalDmg_cq += component.physicalDmg;
-		energyDmg_cq += component.energyDmg;
-	}
+	
+	maxPhysDmg += component.physicalDmg;
+	maxEnergyDmg += component.energyDmg;
+	maxDmg += component.physicalDmg + component.energyDmg;
 
 	maintCost += component.maintCost;
 	offUsed += component.capCost;
+
+	if (component.range > maxRange) {
+		maxRange = component.range;
+	}
 
 	return 1;
 }
@@ -382,18 +395,24 @@ int Ship::addDefComp(Cmp_Defensive component)
 
 int Ship::remOffComponent(int id)
 {
-	for (auto i : components_off) {
+	for (auto &i : components_off) {
 		if (i.id == id) {
-			if (i.range > 1) {
-				physicalDmg_rng -= i.physicalDmg;
-				energyDmg_rng -= i.energyDmg;
-			}
-			else {
-				physicalDmg_cq -= i.physicalDmg;
-				energyDmg_cq -= i.energyDmg;
-			}
+			maxDmg -= (i.physicalDmg + i.energyDmg);
+			maxPhysDmg -= i.physicalDmg;
+			maxEnergyDmg -= i.energyDmg;
 			maintCost -= i.maintCost;
 			offUsed -= i.capCost;
+
+			//Adjust max range
+			int newMax = -1;
+			for (auto &j : components_off) {
+				if (j.id != i.id && j.range > maxRange) {
+					newMax = j.range;
+				}
+			}
+
+			maxRange = newMax;
+
 			return 1;
 		}
 	}

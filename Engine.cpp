@@ -37,6 +37,7 @@ void Engine::initState()
 
 Engine::Engine()
 {
+	std::srand(std::time(0));
 	this->initWindow();
 	this->initTextures();
 	this->initState();

@@ -2,6 +2,7 @@
 #pragma once
 #include <vector>
 #include <stack>
+#include <unordered_map>
 #include <algorithm>
 #include <SFML/Graphics.hpp>
 
@@ -13,12 +14,13 @@
 #include "Ship.h"
 #include "SolarSystem.h"
 #include "AI.h"
+#include "Player.h"
 
 
 /*
 Project: XenoWars, Gamestate System
-Created: 26 MAY 2025
-Updated: 9 APR 2026
+Created: 31 MAR 2026
+Updated: 25 MAY 2026
 
 Description:
 	This file contains the Gamestate System. This is what actually ties the various systems together and manages their interactions.
@@ -65,8 +67,10 @@ class State_Game : public Gamestate {
 private:
 	//## Data
 	std::vector<Ship*> ships;
+	std::unordered_map<int, Ship*> shipMap;
 	std::vector<unsigned int> shipsToRemove;
 	std::vector<SolarSystem*> solarSystems;
+	std::unordered_map<int, SolarSystem*> systemMap;
 	std::vector<Spritesheet> effects;
 	std::unordered_map<int, Infrastructure> infCatalog;
 	std::unordered_map<int, Ship> shipCatalog;
@@ -83,7 +87,8 @@ private:
 	sf::Sprite systemPreview = sf::Sprite(defaultTexture);
 	
 
-	//Player player;
+	Player player;
+	//Player enemy;
 	Map* map;
 	float testTimer = 0.f;
 	int tileSize = 32;
@@ -139,7 +144,11 @@ private:
 	void pollAttack(Ship* attacker, Ship* defender, int range);
 
 	void spawnShip(int owner, Ship type, sf::Vector2<float> pos);
+	void buildImprovement(SolarSystem &system, Infrastructure improvement, Player &playr);
+	void buildShip(SolarSystem &system, Ship shp, Player &playr);
 	void updateShipPositions();
+	void updatePlayer();
+	bool colonizeSystem(SolarSystem* system, Ship* ship);
 
 public:
 	//Constructors and Destructors

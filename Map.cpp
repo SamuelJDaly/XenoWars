@@ -36,6 +36,14 @@ Map::Map(TextureRegistry* textureRegistry, sf::View* view)
 {
 	texReg = textureRegistry;
 	this->view = view;
+	
+	//Create Fog Texture
+	fogTexture = new sf::Texture();
+	sf::Image img;
+	img.resize({ 1, 1 }, sf::Color::Black);
+	if (!fogTexture->loadFromImage(img)) {
+		std::cout << "Could not load fog texture!" << std::endl;
+	}
 }
 
 Map::~Map()
@@ -49,6 +57,8 @@ Map::~Map()
 	}
 
 	tiles.clear();
+
+	delete fogTexture;
 }
 
 void Map::addSpotter(sf::Vector2<unsigned int> pos, int range)
@@ -115,7 +125,7 @@ void Map::setOffset(sf::Vector2<float> newOffset) {
 	}
 }
 
-sf::Vector2<int> Map::tileAtPos(sf::Vector2<float> pos)
+sf::Vector2<int> Map::posToTileIdx(sf::Vector2<float> pos)
 {
 	//Account for centered origin
 	pos.x += (float)tileSize / 2.f;
@@ -130,6 +140,18 @@ sf::Vector2<int> Map::tileAtPos(sf::Vector2<float> pos)
 	}
 
 	return { -1,-1 };
+}
+
+sf::Vector2<float> Map::tileIdxToPos(sf::Vector2<int> idx)
+{
+	//Check for valid idx
+	if (idx.x >= dimensions.x || idx.y >= dimensions.y || idx.x < 0 || idx.y < 0) {
+		std::cout << "Cannot get map position at index, index out of range..." << std::endl;
+		return { -1.f,-1.f };
+	}
+
+	//If idx valid return position of tile at idx
+	return tiles.at(idx.y)->at(idx.x)->sprite.getPosition();
 }
 
 sf::Vector2<float> Map::getSize()
@@ -226,6 +248,15 @@ Tile* Map::tileAtIdx(std::pair<int, int> idx)
 	return tiles.at(idx.second)->at(idx.first);
 }
 
+int Map::mnhtnDist(sf::Vector2<float> a, sf::Vector2<float> b)
+{
+	auto idxA = posToTileIdx(a);
+	auto idxB = posToTileIdx(b);
+
+	return std::fabs(idxA.x - idxB.x) + std::fabs(idxA.y - idxB.y);
+}
+
+
 std::vector<sf::Vector2<int>> Map::tileIdxInRange(int range, sf::Vector2<int> og, bool includeOG)
 {
 	std::vector < sf::Vector2<int>> idxs;
@@ -315,6 +346,25 @@ void Map::Draw(sf::RenderWindow& win)
 		for (auto i = 0; i < grid.size(); i+=2) {
 			sf::Vertex line[2] = { grid.at(i),grid.at(i+1) };
 			win.draw(line,2, sf::PrimitiveType::Lines);
+		}
+	}
+}
+
+void Map::DrawFow(sf::RenderWindow& win)
+{
+	float scaleX = (float)tileSize+1 / (float)fogTexture->getSize().x;
+	float scaleY = (float)tileSize+1 / (float)fogTexture->getSize().y;
+	sf::Sprite fog(*fogTexture);
+	fog.setScale({ scaleX, scaleY });
+	fog.setOrigin({fog.getLocalBounds().size.x / 2.f, fog.getLocalBounds().size.y / 2.f});
+
+	for (auto i = 0; i < dimensions.y; i++) {
+		for (auto j = 0; j < dimensions.x; j++) {
+			if (!tiles.at(i)->at(j)->isSpotted) {
+				//Then draw a fog rectangle here			
+				fog.setPosition({(float)(j * tileSize + offset.x), (float)(i * tileSize + offset.y)});
+				win.draw(fog);
+			}
 		}
 	}
 }

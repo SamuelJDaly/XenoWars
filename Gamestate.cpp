@@ -1,6 +1,4 @@
 #include "Gamestate.h"
-#include "Ship.h"
-#include "SolarSystem.h"
 
 //################################################################################################################
 //				COMMON FUNCTIONS
@@ -42,13 +40,16 @@ void State_Game::initTest()
 	s->setTextureSize(64);
 	s->setTexture(texReg->lookup("ship_4"));
 	s->setAttackEffectTexture(texReg->lookup("beam"));
-	s->setName("NCS Hammer");
+	s->setName("Colony Ship");
 	s->setLaborCost(2.f);
+	s->setCreditCost(500.f);
 	s->setHp(10);
-	s->addOffComp({0,true,5,0,1,0,3});
+	//s->addOffComp({0,true,5,0,1,0,3});
 	s->addDefComp({0,true, 2, 1, 1, 0});
+	s->setIsColonyShip(true);
 	ships.push_back(s);
-	s->setMp(50);
+	shipMap.insert({ s->getID(), s });
+	s->setMp(3);
 
 	Ship* s2 = new Ship(1);
 	s2->setOwner(0);
@@ -56,13 +57,15 @@ void State_Game::initTest()
 	s2->setTexture(texReg->lookup("ship_5"));
 	s2->setAttackEffectTexture(texReg->lookup("beam"));
 	s2->setPosition({160,160});
-	s2->setName("NCS Anvil");
+	s2->setName("Light Frigate");
 	s2->setHp(10);
 	s2->addOffComp({ 0,true,4,0,1,0,1 });
 	s2->addDefComp({ 0,true, 3, 2, 1, 0 });
 	s2->setLaborCost(3.f);
+	s2->setCreditCost(300.f);
 	s2->setMp(50);
 	ships.push_back(s2);
+	shipMap.insert({ s2->getID(), s2 });
 
 	Ship* s3 = new Ship(2);
 	s3->setOwner(1);
@@ -74,11 +77,45 @@ void State_Game::initTest()
 	s3->addOffComp({ 0,true,5,0,1,0,3 });
 	s3->addDefComp({ 0,true, 3, 3, 1, 0 });
 	s3->setHp(10);
-	s3->setMp(2);
+	s3->setMp(3);
+	s3->setSensorRange(3);
 	ships.push_back(s3);
+	shipMap.insert({ s3->getID(), s3 });
+
+	Ship* s4 = new Ship(3);
+	s4->setOwner(1);
+	s4->setTexture(texReg->lookup("ship_3"));
+	s4->setAttackEffectTexture(texReg->lookup("beam"));
+	s4->setPosition({ 384,192 });
+	s4->setName("AI Ship 2");
+	s4->setLaborCost(3.f);
+	s4->addOffComp({ 0,true,5,2,1,0,3 });
+	s4->addDefComp({ 0,true, 2, 2, 1, 0 });
+	s4->setHp(10);
+	s4->setMp(3);
+	s4->setSensorRange(3);
+	ships.push_back(s4);
+	shipMap.insert({ s4->getID(), s4 });
+
+	Ship* s5 = new Ship(4);
+	s5->setOwner(1);
+	s5->setTexture(texReg->lookup("ship_3"));
+	s5->setAttackEffectTexture(texReg->lookup("beam"));
+	s5->setPosition(map->tileIdxToPos({7,1}));
+	s5->setName("AI Ship 3");
+	s5->setLaborCost(3.f);
+	s5->addOffComp({ 0,true,6,3,1,0,1 });
+	s5->addDefComp({ 0,true, 2, 2, 1, 0 });
+	s5->setHp(10);
+	s5->setMp(2);
+	s5->setSensorRange(3);
+	ships.push_back(s5);
+	shipMap.insert({ s5->getID(), s5 });
 
 	//Set up Solar systems
+	//Player
 	SolarSystem* system1 = new SolarSystem(0);
+	//system1->setOwnerId(0);
 	system1->setPosition({2,2});
 	system1->setTextureName("testSheet");
 	system1->setName("Alpha Centauri");
@@ -86,20 +123,27 @@ void State_Game::initTest()
 	//system1->setPopulation(1.f);
 	map->tileAtIdx(2, 2)->isPassable = false;
 	map->tileAtIdx(2, 2)->sprite.setFrame(1);
+	map->tileAtIdx(2, 2)->systemID = 0;
+	map->tileAtIdx(2, 2)->ownerID = 0;
 	
 
-	SolarSystem* system2 = new SolarSystem(0);
+	//AI
+	SolarSystem* system2 = new SolarSystem(1);
 	system2->setPosition({ 4,6 });
-	system2->setOwnerId(0);
+	system2->setOwnerId(1);
 	system2->setTextureName("testSheet");
 	system2->setName("Altair");
 	system2->setLaborPool(2.f);
 	system2->setPopulation(1.f);
 	map->tileAtIdx(4, 6)->isPassable = false;
 	map->tileAtIdx(4, 6)->sprite.setFrame(2);
+	map->tileAtIdx(4, 6)->systemID = 1;
+	map->tileAtIdx(4, 6)->ownerID = 1;
 
 	solarSystems.push_back(system1);
 	solarSystems.push_back(system2);
+	systemMap.insert({system1->getId(), system1});
+	systemMap.insert({system2->getId(), system2});
 
 	//Project Catalogs
 	shipCatalog.insert({0,*s});
@@ -108,12 +152,17 @@ void State_Game::initTest()
 	//ID, Tech, Tags, name, rp, rpMod, creditCost, income, incomeMod, maint, maintMod, laborCost, laborMaint, laborGen, laborMod, popGrowth, popCap, active
 	Infrastructure basicFarm = { 0,-1,{enInfTags::STD, enInfTags::POP},"Basic Farm", 0.f, 0.f, 100.f, 0.f, 0.f, 5.f, 0.f, 10.f, 0.2f, 0.f, 0.f, 0.05f, 0.f, true };
 	Infrastructure advancedFarm = { 1,-1,{enInfTags::STD, enInfTags::POP},"Advanced Farm", 0.f, 0.f, 100.f, 0.f, 0.f, 5.f, 0.f, 10.f, 0.2f, 0.f, 0.f, 0.06f, 1.f, true };
-	Infrastructure basicFactory = { 2,-1,{enInfTags::STD, enInfTags::POP},"Basic Factory", 0.f, 0.f, 100.f, 0.f, 0.f, 5.f, 0.f, 10.f, 0.0f, 1.f, 0.f, 0.f, 0.f, true };
+	Infrastructure basicFactory = { 2,-1,{enInfTags::STD, enInfTags::PROD},"Basic Factory", 0.f, 0.f, 100.f, 0.f, 0.f, 5.f, 0.f, 10.f, 0.0f, 1.f, 0.f, 0.f, 0.f, true };
+	Infrastructure basicResearch = { 3,-1,{enInfTags::STD, enInfTags::SCI},"Research Center", 1.f, 0.f, 100.f, 0.f, 0.f, 8.f, 0.f, 15.f, 0.5f, 0.f, 0.f, 0.f, 0.f, true };
 	infCatalog.insert({0, basicFarm });
 	infCatalog.insert({ 1, advancedFarm });
 	infCatalog.insert({ 2, basicFactory });
+	infCatalog.insert({ 3, basicResearch });
 
 	enemyAI = new AI_Tactical(ships,map, 1);
+
+	player.setCredits(1000.f);
+	player.setID(0);
 }
 
 void State_Game::initGui()
@@ -202,6 +251,9 @@ void State_Game::selectSolarSystem(int i)
 	cursor.setPosition(pos);
 }
 
+//###########################################	GUI
+//###########################################
+
 void State_Game::showGui_TopBar()
 {
 
@@ -217,7 +269,13 @@ void State_Game::showGui_TopBar()
 	ImGui::SetWindowPos(ImVec2(0, 0));
 	ImGui::SetWindowSize(ImVec2(windowWidth, topBarHeight));
 	topBarBottom = (unsigned int)ImGui::GetWindowHeight();
-	ImGui::Text("Turn: %d", turn);
+	ImGui::Text("Credits: %0.1f", player.getCredits());
+	ImGui::SameLine();
+	ImGui::Text("	Research: %0.1f", player.getResearch());
+	ImGui::SameLine();
+	ImGui::Text("	Population: %0.1f", player.getPop());
+	ImGui::SameLine();
+	ImGui::Text("	Turn: %d", turn);
 	ImGui::End();
 }
 
@@ -240,7 +298,7 @@ void State_Game::showGui_shipSel()
 	ImGui::SetWindowSize(ImVec2(300, 150));
 	ImGui::Text("%s", sel.getName().c_str());
 	ImGui::Separator();
-	sf::Vector2<int> pos = map->tileAtPos(sel.getPosition());
+	sf::Vector2<int> pos = map->posToTileIdx(sel.getPosition());
 	ImGui::Text("(%d, %d)", pos.x, pos.y);
 	ImGui::NewLine();
 	ImGui::Text("HP: %d", sel.getHpLeft());
@@ -287,7 +345,7 @@ void State_Game::showGui_systemSel()
 
 	ImGui::Text("Income: +%2.f / -%2.f / %2.f", sel.getIncome(), sel.getMaint(), sel.getIncome() - sel.getMaint()); //Income and Maint
 	ImGui::Text("Research Pts: %2.f", sel.getRP()); //Research
-	ImGui::Text("Labor: %2.f / %2.f", sel.getLaborUsed(), sel.getLaborPool()); //Labor
+	ImGui::Text("Labor: %0.1f / %0.1f", sel.getLaborUsed(), sel.getLaborPool()); //Labor
 	ImGui::EndChild();
 	ImGui::Separator();
 
@@ -304,8 +362,7 @@ void State_Game::showGui_systemSel()
 			for (int i = 0; i < infCatalog.size(); i++) {
 				if (ImGui::Button(infCatalog.at(i).name.c_str())) {
 					Infrastructure inf = infCatalog.at(i);
-
-					sel.addProject({ i,enBuildType::INF,inf.name, inf.laborCost, 0.f, {0.f, 0.f}, false });
+					this->buildImprovement(sel,inf,player);
 				}
 
 			}
@@ -317,10 +374,7 @@ void State_Game::showGui_systemSel()
 			ImGui::Text("Build Ships");
 			for (int i = 0; i < shipCatalog.size(); i++) {
 				if (ImGui::Button(shipCatalog.at(i).getName().c_str())) {
-					Ship shp = shipCatalog.at(i);
-					sf::Vector2<float> spawnPos = map->tileAtIdx({ sel.getPosition().first + 1, sel.getPosition().second })->sprite.getPosition();
-
-					sel.addProject({ i, enBuildType::SHIP, shp.getName(), shp.getLaborCost(), 0.f, {spawnPos.x, spawnPos.y}, false });
+					this->buildShip(sel,shipCatalog.at(i), player);
 				}
 					
 			}
@@ -330,15 +384,18 @@ void State_Game::showGui_systemSel()
 			ImGui::SameLine();
 			ImGui::BeginChild("buildQueue", ImVec2(ImGui::GetWindowWidth() / 3, ImGui::GetWindowHeight() * (2 / 3)), ImGuiChildFlags_Borders);
 			ImGui::Text("Project Queue");
-			ImGui::PushItemFlag(ImGuiItemFlags_AllowDuplicateId, true);
+			ImGui::PushItemFlag(ImGuiItemFlags_AllowDuplicateId, false);
 			std::vector<Project>& items = sel.getBuildQueue();
+			
 			for (size_t i = 0; i < items.size(); i++)
 			{
+				ImGui::PushID(i);
 				Project item = items.at(i);
 				
 				std::string str = item.name + " Labor:" + utl::toStrP(item.laborSpent, 2) + " / " + utl::toStrP(item.laborCost, 2);
 
-				ImGui::Selectable(str.c_str());
+				bool clicked = false;
+				ImGui::Selectable(str.c_str(), &clicked);
 
 				if (ImGui::IsItemActive() && !ImGui::IsItemHovered())
 				{
@@ -347,10 +404,19 @@ void State_Game::showGui_systemSel()
 					{
 						items.at(i) = items.at(next);
 						items.at(next) = item;
-						ImGui::ResetMouseDragDelta();
+						ImGui::ResetMouseDragDelta();						
 					}
 				}
-			}
+
+				if (clicked) {
+					//Remove item
+					items.at(i).isCancelled = true;
+					clicked = !clicked;
+				}
+
+				ImGui::PopID();
+			} 
+
 
 			ImGui::PopItemFlag();
 			ImGui::EndChild();
@@ -423,6 +489,49 @@ void State_Game::showGui_SystemSel_Empty()
 
 void State_Game::showGui_SystemSel_Enemy()
 {
+	ImGuiWindowFlags windowFlags = 0;
+	windowFlags |= ImGuiWindowFlags_NoCollapse;
+	windowFlags |= ImGuiWindowFlags_NoTitleBar;
+	windowFlags |= ImGuiWindowFlags_NoResize;
+	windowFlags |= ImGuiWindowFlags_NoMove;
+	windowFlags |= ImGuiWindowFlags_NoScrollbar;
+
+	bool pOpen = false;
+
+	SolarSystem& sel = *solarSystems.at(systemSel);
+
+	ImGui::Begin("systemSelEnemy", &pOpen, windowFlags);
+
+	float h = .2 * windowHeight;
+	ImGui::SetWindowPos(ImVec2(.3 * windowWidth, .4 * windowHeight));
+	ImGui::SetWindowSize(ImVec2(.4 * windowWidth, h));
+
+
+	sf::Texture* tex = map->tileAtIdx(sel.getPosition())->sprite.getTexture(); //This is a little cursed, but whatever
+	sf::Rect<int> rec = map->tileAtIdx(sel.getPosition())->sprite.getTextureRect();
+	if (tex) {
+		systemPreview.setTexture(*tex);
+		systemPreview.setTextureRect(rec);
+	}
+	else {
+		systemPreview.setTexture(*texReg->lookup("default"));
+	}
+
+	float scaleX = (h - 20) / systemPreview.getLocalBounds().size.x;
+	float scaleY = (h - 20) / systemPreview.getLocalBounds().size.y;
+	systemPreview.setScale({ scaleX,scaleY });
+
+	ImGui::BeginChild("left", ImVec2(h + 20, ImGui::GetWindowHeight()), 0);
+	ImGui::Image(systemPreview);
+	ImGui::EndChild();
+	ImGui::SameLine();
+	ImGui::BeginChild("middle", ImVec2(ImGui::GetWindowWidth() - (h + 20), ImGui::GetWindowHeight()), 0);
+	ImGui::Text("%s", sel.getName().c_str());
+	ImGui::Separator();
+	ImGui::Text("An Enemy system");
+	ImGui::EndChild();
+
+	ImGui::End();
 }
 
 void State_Game::showGui_debugPanel()
@@ -447,16 +556,18 @@ void State_Game::showGui_debugPanel()
 	ImGui::End();
 }
 
+//##########################################	Util
+
 void State_Game::pollMove(Ship* ship, sf::Vector2<float> pos)
 {
-	sf::Vector2<int> t = map->tileAtPos(pos);
+	sf::Vector2<int> t = map->posToTileIdx(pos);
 	std::cout << "Tile: " << t.x << ", " << t.y << std::endl;
 
 	//Ship movment
 	if (shipSel >= 0 && shipSel < ships.size()) {
 		//Check for valid position
-		sf::Vector2<int> og = map->tileAtPos(ships.at(shipSel)->getPosition());
-		sf::Vector2<int> target = map->tileAtPos(pos);
+		sf::Vector2<int> og = map->posToTileIdx(ships.at(shipSel)->getPosition());
+		sf::Vector2<int> target = map->posToTileIdx(pos);
 		std::vector<sf::Vector2<float>> path = map->pathfind(og, target);
 
 
@@ -490,6 +601,40 @@ void State_Game::spawnShip(int owner, Ship type, sf::Vector2<float> pos)
 	s->setOwner(owner);
 	s->setPosition(pos);
 	ships.push_back(s);
+	shipMap.insert({ s->getID(), s });
+}
+
+void State_Game::buildImprovement(SolarSystem &system, Infrastructure improvement, Player &playr)
+{
+	//Check Constraints
+	if (playr.getID() != system.getOwnerId()) {
+		return;
+	}
+
+	if (playr.getCredits() < improvement.creditCost) {
+		return;
+	}
+
+	//Construct Improvement
+	playr.modCredits(-1*improvement.creditCost);
+	system.addProject({ improvement.id,enBuildType::INF,improvement.name, improvement.laborCost, 0.f, improvement.creditCost ,{0.f, 0.f}, false, false });
+}
+
+void State_Game::buildShip(SolarSystem &system, Ship shp, Player &playr)
+{
+	//## Check Constraints
+	if (system.getOwnerId() != playr.getID()) {
+		return;
+	}
+
+	if (playr.getCredits() < shp.getCreditCost()) {
+		return;
+	}
+
+	//## Build Ship
+	playr.modCredits(-1 * shp.getCreditCost());
+	sf::Vector2<float> spawnPos = map->tileAtIdx({ system.getPosition().first + 1, system.getPosition().second })->sprite.getPosition();
+	system.addProject({ (int)system.getBuildQueue().size(), enBuildType::SHIP, shp.getName(), shp.getLaborCost(), 0.f, shp.getCreditCost() ,{spawnPos.x, spawnPos.y}, false, false});
 }
 
 void State_Game::updateShipPositions()
@@ -502,11 +647,53 @@ void State_Game::updateShipPositions()
 	map->clearShipPositions();
 
 	for (auto s : ships) {
-		sf::Vector2<int> pos = map->tileAtPos(s->getPosition());
+		sf::Vector2<int> pos = map->posToTileIdx(s->getPosition());
 		map->tileAtIdx({ pos.x, pos.y })->shipID = s->getID();
 		map->tileAtIdx({ pos.x, pos.y })->ownerID = s->getOwner();
 	}
 }
+
+void State_Game::updatePlayer()
+{
+	float inc = 0.f;
+	float maint = 0.f;
+	float rp = 0.f;
+	float pop = 0.f;
+	for (auto s : solarSystems) {
+		if (s->getOwnerId() == 0) {
+			inc += s->getIncome();
+			maint += s->getMaint();
+			rp += s->getRP();
+			pop += s->getPopulation();
+		}
+	}
+
+	player.setIncome(inc);
+	player.setMaint(maint);
+	player.setResearch(rp);
+	player.setPop(pop);
+	
+}
+
+bool State_Game::colonizeSystem(SolarSystem* system, Ship* ship)
+{
+	//Check that ship can colonize
+	if (!ship->getIsColonyShip() || system->getOwnerId() >= 0) {
+		return false;
+	}
+
+	//Colonize system
+	system->setOwnerId(ship->getOwner());
+	system->setPopulation(0.5f);
+	system->updateStats();
+
+	this->updatePlayer();
+
+	//Delete ship
+	ship->kill(false);
+	return true;
+}
+
 
 State_Game::State_Game(TextureRegistry* textureRegistry, sf::RenderWindow* window)
 {
@@ -530,6 +717,7 @@ State_Game::State_Game(TextureRegistry* textureRegistry, sf::RenderWindow* windo
 	//Set up views
 	mapView.setViewport({ {0.f,0.f},{1.f,1.f} }); //Where it appears in window
 	mapView.setSize({ (float)win->getSize().x, (float)win->getSize().y }); //Ratio to window size
+	mapView.setCenter({(float)win->getSize().x / 2.f, (float)win->getSize().y / 2.f});
 	guiView = win->getDefaultView();
 
 	//Set up Cursors
@@ -563,12 +751,14 @@ State_Game::~State_Game()
 	}
 
 	ships.clear();
+	shipMap.clear();
 
 	for (auto s : solarSystems) {
 		delete s;
 	}
 
 	solarSystems.clear();
+	systemMap.clear();
 }
 
 void State_Game::endTurn()
@@ -596,8 +786,10 @@ void State_Game::endTurn()
 		}
 	}
 
+	this->updatePlayer();
+	player.endTurn();
+
 	enemyAI->getActions();
-	enemyAI->scoreActions();
 	enemyAI->executeTurn();
 	
 
@@ -622,7 +814,7 @@ void State_Game::update(float dt)
 	this->updateCamera(dt);
 	this->constrainCamera();
 
-	//GUI
+	//### GUI
 	if (showDemo) {
 		ImGui::ShowDemoWindow();
 	}
@@ -648,12 +840,27 @@ void State_Game::update(float dt)
 		}
 		else {
 			//Enemy System
-			// isMenuShown = true;
-			//showGui_SystemSel_Enemy();
+			isMenuShown = true;
+			showGui_SystemSel_Enemy();
 		}
 	}
 
-	for (auto it = ships.begin(); it != ships.end(); /* NOTHING */)
+	//### Systems
+	for (auto s : solarSystems) {
+		//Update
+		s->update(dt);
+
+		//Check for project refunds
+		float ref = s->getRefund();
+		s->setRefund(0.f);
+		player.modCredits(ref);
+	}
+
+	
+	
+
+	//### Ships
+	for (auto it = ships.begin(); it != ships.end();)
 	{
 		
 		if (!(*it)->isAnimated() && (*it)->getDead()) {
@@ -678,16 +885,26 @@ void State_Game::update(float dt)
 
 	this->updateShipPositions();
 
-	//POTENTIAL ISSUE: maybe dont delete from a list you are looping through without updating the iteration logic... ;(
-	for(auto i = 0; i < effects.size(); i++) {
-		effects.at(i).update(dt);
-		if (!effects.at(i).getAnimated()) {
-			//Remove from list
-			effects.erase(effects.begin() + i);
+	//### Effects
+	for (auto it = effects.begin(); it != effects.end();) {
+		if (!(*it).getAnimated()) {
+			it = effects.erase(it);
+		}
+		else {
+			++it;
 		}
 	}
 
+	//POTENTIAL ISSUE: maybe dont delete from a list you are looping through without updating the iteration logic... ;(
+	//for(auto i = 0; i < effects.size(); i++) {
+	//	effects.at(i).update(dt);
+	//	if (!effects.at(i).getAnimated()) {
+	//		//Remove from list
+	//		effects.erase(effects.begin() + i);
+	//	}
+	//}
 
+	//### Map
 	//testTimer += dt;
 	if (testTimer >= 1.f) {
 		map->Update();
@@ -757,8 +974,8 @@ void State_Game::poll(sf::RenderWindow& win, std::optional<sf::Event> event)
 						if (s->contains(mapViewMousePos)) {
 							
 							if (s->getOwner() != ships.at(shipSel)->getOwner()) {
-								sf::Vector2<int> posA = map->tileAtPos(ships.at(shipSel)->getPosition());
-								sf::Vector2<int> posB = map->tileAtPos(s->getPosition());
+								sf::Vector2<int> posA = map->posToTileIdx(ships.at(shipSel)->getPosition());
+								sf::Vector2<int> posB = map->posToTileIdx(s->getPosition());
 								int dist = (int)std::floor(std::sqrt(std::pow(posB.x - posA.x, 2) + std::pow(posB.y - posA.y, 2)));
 								if (dist <= ships.at(shipSel)->getMaxRange()) {
 									this->pollAttack(ships.at(shipSel), s, dist);
@@ -768,7 +985,19 @@ void State_Game::poll(sf::RenderWindow& win, std::optional<sf::Event> event)
 						}
 					}
 
-					if (!didAttack) {
+					//Check Colonize
+					bool didColonize = false;
+					auto mapIdx = map->posToTileIdx(mapViewMousePos);
+					auto posA = ships.at(shipSel)->getPosition();
+					int dist = map->mnhtnDist(posA, mapViewMousePos);
+					if (dist <= std::sqrtf(2.f) && map->tileAtIdx(mapIdx.x, mapIdx.y)->systemID >= 0 && map->tileAtIdx(mapIdx.x, mapIdx.y)->ownerID < 0) {
+						//Then this is an empty system, colonize it
+						didColonize = this->colonizeSystem(systemMap.at(map->tileAtIdx(mapIdx.x, mapIdx.y)->systemID), ships.at(shipSel));
+					}
+
+
+					//Check Move
+					if (!didAttack && !didColonize) {
 						this->pollMove(ships.at(shipSel), mapViewMousePos);
 					}
 				}
@@ -784,7 +1013,7 @@ void State_Game::poll(sf::RenderWindow& win, std::optional<sf::Event> event)
 		sf::Vector2<float> mapViewMousePos = win.mapPixelToCoords(mousePos);
 
 		//Game map coords
-		cursorPos = map->tileAtPos(mapViewMousePos);
+		cursorPos = map->posToTileIdx(mapViewMousePos);
 
 		//Panning
 		if (isMousePan) {
@@ -862,6 +1091,8 @@ void State_Game::draw(sf::RenderWindow& win)
 	for (auto s : ships) {
 		s->draw(win);
 	}
+
+	//map->DrawFow(win);
 
 	for (auto e : effects) {
 		e.draw(win);

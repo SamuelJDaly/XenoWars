@@ -39,8 +39,10 @@ struct Project {
 	std::string name = "none";
 	float laborCost;
 	float laborSpent;
+	float creditCost = 0.f;
 	std::pair<float, float> pos = { 0,0 };
 	bool isDone = false;
+	bool isCancelled = false;
 
 	inline float advance(float labor) {
 		laborSpent += labor;
@@ -70,16 +72,26 @@ private:
 
 	//Stats
 	float rp = 0.f; //research pts
+	float rpMod = 1.f;
 	float income = 0.f;
+	float refund = 0.f;
+	float incomeMod = 1.f;
 	float maint = 0.f;
+	float maintMod = 1.f;
+	float taxRate = 0.1f;
 	float popCapacity = 3.f; //How much pop can be supported
+	float popCapMod = 1.f;
 	float population = 0.f;
 	float popGrowth = 0.f;
+	float popGrowthMod = 1.f;
+	float popWealth = 100.f;
 	float laborPool = 0.f;
+	float laborPoolMod = 1.f;
 	float laborUsed = 0.f;
+	float laberUseMod = 1.f;
 
 	//Util
-	void updateStats();
+	
 	
 
 public:
@@ -91,6 +103,7 @@ public:
 	void update(float dt);
 	void onTurnEnd();
 	void onTurnBegin();
+	void updateStats();
 
 	void setId(int newId);
 	void setOwnerId(int newId);
@@ -109,12 +122,21 @@ public:
 
 	inline void setPopulation(float newPop) { population = newPop; };
 	inline void setPopGrowth(float newGrowth) { popGrowth = newGrowth; };
+	inline void setPopGrowthMod(float mod) { popGrowthMod = mod; }
 	inline void setPopCap(float newCap) { popCapacity = newCap; };
+	inline void setPopCapMod(float mod) { popCapMod = mod; }
 	inline void setIncome(float newInc) { income = newInc; };
+	inline void setIncomeMod(float mod) { incomeMod = mod; }
 	inline void setMaint(float newMaint) { maint = newMaint; };
+	inline void setMaintMod(float mod) { maintMod = mod; }
 	inline void setRP(float newRP) { rp = newRP; };
+	inline void setRPMod(float mod) { rpMod = mod; }
 	inline void setLaborUsed(float used) { laborUsed = used; };
+	inline void setLaborUseMod(float mod) { laberUseMod = mod; }
 	inline void setLaborPool(float pool) { laborPool = pool; };
+	inline void setLaborPoolMod(float mod) { laborPoolMod = mod; }
+	inline void setRefund(float amt) { refund = amt; }
+	inline float getRefund() { return refund; }
 
 	inline std::vector<Infrastructure> getImprovements() { return improvements; };
 	inline float getPopulation() { return population; }

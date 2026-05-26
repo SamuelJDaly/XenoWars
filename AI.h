@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include "Ship.h"
 #include "Map.h"
+#include "Curves.hpp"
 
 
 enum class enActionType {
@@ -16,8 +17,8 @@ class Action {
 protected:
 	//Common Data
 	enActionType type;
-	float baseScore = 1;
-	float score = 1;
+	float baseScore = 1.f;
+	float score = 1.f;
 
 public:
 	//Common Functions
@@ -31,17 +32,34 @@ public:
 	virtual void calcScore(Goal g) = 0;
 };
 
+class Act_Idle : public Action {
+private:
+	//Data
+	Ship* actor;
+
+public:
+	//Constructor and Destructor
+	Act_Idle(Ship* initActor);
+	~Act_Idle();
+
+	//Primary Functions
+	void execute();
+	void print();
+	void calcScore(Goal g);
+};
 
 class Act_Move : public Action {
 private:
 	//Data
 	Ship* actor;
+	Ship* strongestNeighbor;
 	Map* env;
 	sf::Vector2<float> target;
+	float cowardice = 1.f;
 
 public:
 	//Constructor and Destructor
-	Act_Move(Ship* initActor, Map* initEnv,sf::Vector2<float> initTarget);
+	Act_Move(Ship* inActor, Map* inEnv, Ship* inStrongestNeigbor,sf::Vector2<float> inTarget);
 	~Act_Move();
 	
 	//Primary Functions
@@ -73,6 +91,7 @@ struct Goal {
 	std::string name = "default";
 	float agression = 1.f;
 	float cohesion = 1.f;
+	float idle = 0.75f;
 };
 
 
@@ -81,15 +100,14 @@ private:
 	//## Data
 	//General
 	int ownerID = -1;
-	std::vector<Action*> actions;
 	std::unordered_map<int, Ship*> aiShips;
 	std::unordered_map<int, Ship*> playerShips;
 	Map* map;
 	Goal strategicGoal = {"default", 1.5f, 1.2f};
-
+	std::vector<Action*> chosenActions;
 
 	//## Util
-	void clearActions();
+	
 
 public:
 	//Constructors and Destructor
@@ -98,7 +116,7 @@ public:
 
 	//Primary Functions
 	void getActions();
-	void scoreActions();
 	void executeTurn();
 
+	void update();
 };
